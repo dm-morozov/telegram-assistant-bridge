@@ -1,0 +1,30 @@
+name: telegram-assistant-bridge
+services:
+  bridge:
+    image: ${BRIDGE_IMAGE:?Set a reviewed image reference pinned by sha256 digest}
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.25
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 64
+    init: true
+    restart: "no"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,uid=1000,gid=1000
+    volumes:
+      - bridge_state:/home/node/bridge-state
+    networks: [bridge_private]
+    logging:
+      driver: local
+      options:
+        max-size: "5m"
+        max-file: "2"
+    # No host ports, external networks, host binds, secrets or Docker socket.
+networks:
+  bridge_private:
+    internal: true
+volumes:
+  bridge_state:

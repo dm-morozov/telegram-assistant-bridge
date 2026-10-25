@@ -1,0 +1,11 @@
+{
+  "name": "telegram-assistant-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-only MCP status prototype; Telegram integration is not implemented.",
+  "engines": { "node": ">=24 <25" },
+  "scripts": { "start": "node src/main.mjs", "test": "node --test" },
+  "dependencies": { "@modelcontextprotocol/server": "2.4.0", "@modelcontextprotocol/node": "2.1.2", "zod": "4.6.7" },
+  "devDependencies": { "@modelcontextprotocol/client": "2.4.0" }
+}
