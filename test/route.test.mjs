@@ -14,3 +14,8 @@ test('stale identity, neighbor project, changed image/network and IP injection f
     await assert.rejects(renderLoopback({ ...identity, ...changed }, id));
   }
 });
+
+test('verified Docker containerd manifest identity is accepted for the same tested archive', async () => {
+  const config = await renderLoopback({ ...identity, imageId: 'sha256:ee400b274a5a8296f1bcb547d597899895d2154ab11a48584dd747b011f81aa1' }, id);
+  assert.ok(config.includes('proxy_pass http://192.168.250.2:3000;'));
+});

@@ -2,11 +2,12 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { isIP } from 'node:net';
 import { pathToFileURL } from 'node:url';
 
-const reviewedImage = 'sha256:4bcc401e4eab8e8149da83a92829265b549ae1d4ddc084ab54de8d3a84fd8d1c';
+// Same verified archive: classic config ID and Docker containerd OCI manifest ID.
+const reviewedImages = new Set(['sha256:4bcc401e4eab8e8149da83a92829265b549ae1d4ddc084ab54de8d3a84fd8d1c', 'sha256:ee400b274a5a8296f1bcb547d597899895d2154ab11a48584dd747b011f81aa1']);
 export async function renderLoopback(metadata, expectedContainerId) {
   if (!/^[a-f0-9]{64}$/.test(expectedContainerId ?? '') || metadata.containerId !== expectedContainerId) throw new Error('Container identity mismatch');
   if (metadata.project !== 'telegram-assistant-bridge' || metadata.service !== 'bridge') throw new Error('Wrong Compose project/service');
-  if (metadata.imageId !== reviewedImage || metadata.running !== true) throw new Error('Image or running-state mismatch');
+  if (!reviewedImages.has(metadata.imageId) || metadata.running !== true) throw new Error('Image or running-state mismatch');
   if (metadata.networkCount !== 1 || metadata.publishedPortCount !== 0 || metadata.internal !== true || metadata.driver !== 'bridge' || !['nat', 'default-nat'].includes(metadata.gatewayMode)) throw new Error('Unexpected network configuration');
   if (isIP(metadata.ip) !== 4) throw new Error('Invalid IP');
   const [a, b] = metadata.ip.split('.').map(Number);
