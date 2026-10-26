@@ -1,0 +1,12 @@
+# Own diagnostic run override only. All isolation/resource settings inherit from compose.synthetic.yaml.
+services:
+  bridge:
+    command:
+      - node
+      - pilot-local/container-main.mjs
+      - --container
+      - --owner-config
+      - /run/bridge-owner/owner.local.json
+      - --jwks-snapshot
+      - /run/bridge-jwks/jwks.snapshot.json
+      - --http-diagnostics

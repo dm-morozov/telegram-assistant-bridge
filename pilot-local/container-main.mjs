@@ -3,10 +3,10 @@ import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { createConfiguredIngressPilot } from './owner-config.mjs';
 export async function runContainer(args) {
- const {values}=parseArgs({args,options:{container:{type:'boolean'},'owner-config':{type:'string'},'jwks-snapshot':{type:'string'}},strict:true});
+ const {values}=parseArgs({args,options:{container:{type:'boolean'},'http-diagnostics':{type:'boolean'},'owner-config':{type:'string'},'jwks-snapshot':{type:'string'}},strict:true});
  if(values.container!==true||!values['owner-config']||!values['jwks-snapshot'])throw new Error('Explicit container-only startup required');
  const now=Date.now();
- const runtime=await createConfiguredIngressPilot({ownerConfigPath:values['owner-config'],jwksSnapshotPath:values['jwks-snapshot'],listenHost:'0.0.0.0',chats:[{id:'synthetic-demo',activatedAt:now-1000,consentUntil:now+900000,participantsConsented:true}]});
+ const runtime=await createConfiguredIngressPilot({ownerConfigPath:values['owner-config'],jwksSnapshotPath:values['jwks-snapshot'],diagnosticSink:values['http-diagnostics']===true?record=>console.log(JSON.stringify(record)):undefined,listenHost:'0.0.0.0',chats:[{id:'synthetic-demo',activatedAt:now-1000,consentUntil:now+900000,participantsConsented:true}]});
  let cancelDeadline=()=>{},stopping;
  const stop=()=>stopping??=(async()=>{cancelDeadline();await runtime.close();})();
  try {
@@ -14,7 +14,7 @@ export async function runContainer(args) {
   await runtime.start(3000);
   cancelDeadline=armDeadline(stop);
   process.once('SIGTERM',()=>{void stop();});process.once('SIGINT',()=>{void stop();});
-  // No issuer/subject/path/token/request content is logged.
+  // Opt-in diagnostics log only allowlisted method/path/status/duration/category; never credentials, identity or content.
   console.log('Synthetic private MCP ready; maximum runtime 15 minutes');
   return {stop};
  }catch{await stop();throw new Error('Synthetic private MCP startup failed');}

@@ -18,13 +18,13 @@ export async function loadApprovedOwnerConfiguration(configPath) {
     return Object.freeze({oauth:Object.freeze({...config.oauth})});
   } catch { throw new Error('Approved verified-owner configuration required'); }
 }
-export async function createConfiguredLocalPilot({ownerConfigPath,chats=[],clock=Date.now,sweepMs=1000}={}) {
+export async function createConfiguredLocalPilot({ownerConfigPath,chats=[],clock=Date.now,sweepMs=1000,diagnosticSink}={}) {
   const {oauth}=await loadApprovedOwnerConfiguration(ownerConfigPath);
-  return createLocalProtectedPilot({oauth,chats,clock,sweepMs});
+  return createLocalProtectedPilot({oauth,chats,clock,sweepMs,diagnosticSink});
 }
 
-export async function createConfiguredIngressPilot({ownerConfigPath,jwksSnapshotPath,chats=[],listenHost='127.0.0.1',sweepMs=1000}={}) {
+export async function createConfiguredIngressPilot({ownerConfigPath,jwksSnapshotPath,chats=[],listenHost='127.0.0.1',sweepMs=1000,diagnosticSink}={}) {
   const {oauth}=await loadApprovedOwnerConfiguration(ownerConfigPath);
   await readJwksSnapshot(jwksSnapshotPath,oauth);
-  return createSnapshotIngressPilot({oauth,jwksSnapshotPath,chats,listenHost,sweepMs});
+  return createSnapshotIngressPilot({oauth,jwksSnapshotPath,chats,listenHost,sweepMs,diagnosticSink});
 }
