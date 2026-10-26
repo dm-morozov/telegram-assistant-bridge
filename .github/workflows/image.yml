@@ -31,28 +31,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          trap 'docker logs bridge-status-ci || true; docker inspect --format "{{json .State}}" bridge-status-ci || true; docker stop bridge-status-ci >/dev/null 2>&1 || true; docker rm bridge-status-ci >/dev/null 2>&1 || true' EXIT
+          trap 'docker logs bridge-status-ci || true; docker inspect --format "{{json .State}}" bridge-status-ci || true; docker stop bridge-client-ci bridge-status-ci >/dev/null 2>&1 || true; docker rm bridge-client-ci bridge-status-ci >/dev/null 2>&1 || true; docker network rm bridge-status-ci >/dev/null 2>&1 || true' EXIT
           docker network create --internal bridge-status-ci
-          docker run -d --name bridge-status-ci --network bridge-status-ci --user 1000:1000 --read-only --cap-drop ALL --security-opt no-new-privileges --cpus .25 --memory 256m --memory-swap 256m --pids-limit 64 --tmpfs /tmp:rw,noexec,nosuid,size=16m,uid=1000,gid=1000 -p 127.0.0.1:18085:3000 telegram-assistant-bridge:status node src/main.mjs --container --public-status
+          docker run -d --name bridge-status-ci --network bridge-status-ci --user 1000:1000 --read-only --cap-drop ALL --security-opt no-new-privileges --cpus .25 --memory 256m --memory-swap 256m --pids-limit 64 --tmpfs /tmp:rw,noexec,nosuid,size=16m,uid=1000,gid=1000 telegram-assistant-bridge:status node src/main.mjs --container --public-status
           ready=false
           for attempt in $(seq 1 20); do
-            if curl -s -o /dev/null http://127.0.0.1:18085/mcp; then ready=true; break; fi
+            if docker exec bridge-status-ci node -e "fetch('http://127.0.0.1:3000/mcp').then(()=>process.exit(0),()=>process.exit(1))"; then ready=true; break; fi
             sleep 1
           done
-          if [ "$ready" != true ]; then docker port bridge-status-ci; exit 1; fi
+          if [ "$ready" != true ]; then exit 1; fi
           docker stats --no-stream --format '{{json .}}' bridge-status-ci > image-artifact/stats-idle.json
-          timeout 30s node scripts/smoke.mjs http://127.0.0.1:18085/mcp > image-artifact/smoke.txt &
+          base=$(cat image-artifact/base-image.txt)
+          timeout 40s docker run --rm --name bridge-client-ci --network container:bridge-status-ci --user 1000:1000 --read-only --cap-drop ALL --security-opt no-new-privileges --cpus .25 --memory 256m --memory-swap 256m --pids-limit 64 --mount type=bind,src="$GITHUB_WORKSPACE",dst=/client,readonly --workdir /client "$base" node scripts/smoke.mjs http://127.0.0.1:3000/mcp > image-artifact/smoke.txt &
           smoke_pid=$!
           for sample in 1 2 3; do
-            if [ "$ready" != true ]; then docker port bridge-status-ci; exit 1; fi
-          docker stats --no-stream --format '{{json .}}' bridge-status-ci >> image-artifact/stats-during-calls.jsonl
+            docker stats --no-stream --format '{{json .}}' bridge-status-ci >> image-artifact/stats-during-calls.jsonl
           done
           wait "$smoke_pid"
           docker inspect --format '{{json .State}}' bridge-status-ci > image-artifact/container-state.json
+          docker inspect --format 'user={{.Config.User}} memory={{.HostConfig.Memory}} memoryswap={{.HostConfig.MemorySwap}} nanocpus={{.HostConfig.NanoCpus}} pids={{.HostConfig.PidsLimit}} readonly={{.HostConfig.ReadonlyRootfs}} capdrop={{json .HostConfig.CapDrop}} security={{json .HostConfig.SecurityOpt}}' bridge-status-ci > image-artifact/container-limits.txt
+          docker network inspect --format 'internal={{.Internal}}' bridge-status-ci > image-artifact/network-isolation.txt
           docker stop bridge-status-ci
           docker save telegram-assistant-bridge:status | gzip > image-artifact/status-image.tar.gz
           sha256sum image-artifact/status-image.tar.gz > image-artifact/archive-sha256.txt
-          cat image-artifact/source-sha.txt image-artifact/base-image.txt image-artifact/image-id.txt image-artifact/archive-sha256.txt image-artifact/smoke.txt image-artifact/stats-idle.json image-artifact/stats-during-calls.jsonl image-artifact/container-state.json
+          cat image-artifact/source-sha.txt image-artifact/base-image.txt image-artifact/image-id.txt image-artifact/archive-sha256.txt image-artifact/smoke.txt image-artifact/stats-idle.json image-artifact/stats-during-calls.jsonl image-artifact/container-state.json image-artifact/container-limits.txt image-artifact/network-isolation.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: tested-status-image
