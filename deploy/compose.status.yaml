@@ -1,0 +1,6 @@
+# Review-only override. Requires an explicit reviewed image reference in BRIDGE_IMAGE.
+services:
+  bridge:
+    command: ["node", "src/main.mjs", "--container", "--public-status"]
+    ports:
+      - "127.0.0.1:18085:3000"

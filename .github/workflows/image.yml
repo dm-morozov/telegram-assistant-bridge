@@ -1,0 +1,59 @@
+name: Build and test isolated status image
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm test
+      - name: Build with resolved official base digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p image-artifact
+          docker pull node:24-bookworm-slim
+          base=$(docker image inspect --format '{{index .RepoDigests 0}}' node:24-bookworm-slim)
+          printf '%s\n' "$base" > image-artifact/base-image.txt
+          printf '%s\n' "$GITHUB_SHA" > image-artifact/source-sha.txt
+          docker build --build-arg NODE_BASE="$base" --tag telegram-assistant-bridge:status .
+          docker image inspect --format '{{.Id}}' telegram-assistant-bridge:status > image-artifact/image-id.txt
+      - name: Smoke test constrained short-lived container
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'docker stop bridge-status-ci >/dev/null 2>&1 || true; docker rm bridge-status-ci >/dev/null 2>&1 || true' EXIT
+          docker network create --internal bridge-status-ci
+          docker run -d --name bridge-status-ci --network bridge-status-ci --user 1000:1000 --read-only --cap-drop ALL --security-opt no-new-privileges --cpus .25 --memory 256m --memory-swap 256m --pids-limit 64 --tmpfs /tmp:rw,noexec,nosuid,size=16m,uid=1000,gid=1000 -p 127.0.0.1:18085:3000 telegram-assistant-bridge:status node src/main.mjs --container --public-status
+          for attempt in $(seq 1 20); do
+            if curl -s -o /dev/null http://127.0.0.1:18085/mcp; then break; fi
+            sleep 1
+          done
+          docker stats --no-stream --format '{{json .}}' bridge-status-ci > image-artifact/stats-idle.json
+          timeout 30s node scripts/smoke.mjs http://127.0.0.1:18085/mcp > image-artifact/smoke.txt &
+          smoke_pid=$!
+          for sample in 1 2 3; do
+            docker stats --no-stream --format '{{json .}}' bridge-status-ci >> image-artifact/stats-during-calls.jsonl
+          done
+          wait "$smoke_pid"
+          docker inspect --format '{{json .State}}' bridge-status-ci > image-artifact/container-state.json
+          docker stop bridge-status-ci
+          docker save telegram-assistant-bridge:status | gzip > image-artifact/status-image.tar.gz
+          sha256sum image-artifact/status-image.tar.gz > image-artifact/archive-sha256.txt
+          cat image-artifact/source-sha.txt image-artifact/base-image.txt image-artifact/image-id.txt image-artifact/archive-sha256.txt image-artifact/smoke.txt image-artifact/stats-idle.json image-artifact/stats-during-calls.jsonl image-artifact/container-state.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tested-status-image
+          path: image-artifact/
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: error

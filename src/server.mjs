@@ -18,10 +18,13 @@ function createMcpServer() {
   return server;
 }
 
-export function createBridgeHttpServer() {
+export function createBridgeHttpServer({ publicStatus = false } = {}) {
   const http = createServer(async (req, res) => {
-    // Local prototype: reject browser origins and DNS-rebinding hosts. No authentication is implemented.
-    if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.headers.host ?? '') || req.headers.origin) {
+    // Only a fixed public status hostname is allowed in the explicitly enabled trial mode.
+    const host = req.headers.host ?? '';
+    const localHost = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
+    const trialHost = publicStatus && /^(telegram-bridge\.mu56\.ru)(:443)?$/.test(host);
+    if ((!localHost && !trialHost) || req.headers.origin) {
       res.writeHead(403).end(); return;
     }
     if (req.url !== '/mcp') { res.writeHead(404).end(); return; }

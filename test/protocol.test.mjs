@@ -32,3 +32,33 @@ test('official MCP client initializes, discovers and calls only status', async (
     await new Promise(resolve => http.close(resolve));
   }
 });
+
+test('public trial allows only its fixed host and still exposes static status only', async () => {
+  const http = createBridgeHttpServer({ publicStatus: true });
+  http.listen(0, '127.0.0.1');
+  await once(http, 'listening');
+  const endpoint = new URL(`http://127.0.0.1:${http.address().port}/mcp`);
+  const post = (host, origin) => new Promise((resolve, reject) => {
+    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'status', arguments: {} } });
+    const headers = { Host: host, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'Content-Length': Buffer.byteLength(body), 'MCP-Protocol-Version': '2025-11-25' };
+    if (origin) headers.Origin = origin;
+    const req = request(endpoint, { method: 'POST', headers }, res => {
+      let text = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { text += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode, text }));
+    });
+    req.on('error', reject); req.end(body);
+  });
+  try {
+    const accepted = await post('telegram-bridge.mu56.ru');
+    assert.equal(accepted.status, 200, accepted.text);
+    assert.deepEqual(JSON.parse(accepted.text).result.structuredContent, { service: 'telegram-assistant-bridge', stage: 'prototype', telegramConnected: false });
+    assert.equal((await post('telegram-bridge.mu56.ru.attacker.invalid')).status, 403);
+    assert.equal((await post('telegram-bridge.mu56.ru', 'https://example.invalid')).status, 403);
+    assert.equal((await post('telegram-bridge.mu56.ru', 'https://telegram-bridge.mu56.ru')).status, 403);
+    assert.equal((await post('example.invalid')).status, 403);
+  } finally {
+    await new Promise(resolve => http.close(resolve));
+  }
+});

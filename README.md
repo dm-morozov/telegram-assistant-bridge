@@ -1,6 +1,6 @@
 # Telegram Assistant Bridge
 
-Local-only MCP status prototype. No Telegram SDK, credentials, personal data, authentication, subscriptions or background events are implemented.
+MCP status prototype, local-only by default. No Telegram SDK, credentials, personal data, authentication, subscriptions or background events are implemented.
 
 ## Run locally
 
@@ -21,7 +21,7 @@ Do not connect this service to another project's networks or volumes. Do not run
 
 1. Complete read-only host capacity, ports, container and HTTPS checks before deployment.
 2. Choose a dedicated DNS name and certificate, review the existing HTTPS proxy route and streaming/timeouts. No external port or proxy change is provided here.
-3. Choose supported authentication for a remote MCP endpoint before external exposure. No new identity, token or permanent access is created by this prototype.
+3. Require OAuth before exposing any private data, Telegram, events or write tools. The separately approved public static status-only trial is the only no-auth exception. No new identity, token or permanent access is created by this prototype.
 4. Test status through protected HTTPS, then connect a personal plugin. A public GitHub repository does not make the plugin public.
 5. Implement and validate one synthetic event separately. No MCP Events capability is advertised now. Check SDK support, subscription lifecycle, callback validation and signed delivery before claiming event support. Telegram integration and real credentials come later.
 
@@ -33,3 +33,9 @@ Do not connect this service to another project's networks or volumes. Do not run
 - https://github.com/modelcontextprotocol/typescript-sdk/tree/main
 
 The current SDK stable line is v2 with split server/client/node packages; the short OpenAI example still names the v1 package. This prototype uses exact v2 package versions and a lockfile. It does not claim MCP Events compatibility.
+
+## Prepared public status-only trial
+
+The selected hostname is `telegram-bridge.mu56.ru`. See `deploy/APPROVAL.md` for the proposed DNS, dedicated HTTPS vhost, limits, maximum 15-minute trial and rollback. These files are preparation only: no DNS, certificates or server deployment were changed.
+
+`deploy/compose.status.yaml` adds an explicitly enabled public-status Host policy and loopback port 18085. Use it only with the base Compose file and a reviewed, tested image digest after approval. The base Compose file alone still publishes no ports. All Origin headers remain rejected. The only public data is the fixed status response. Authentication is intentionally absent in this narrowly scoped trial; no private data, new tools or events may be added without separate OAuth and release review.
