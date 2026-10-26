@@ -8,3 +8,4 @@ coverage/
 *.log
 image-artifact/
 ci-tmp/
+synthetic-artifact/

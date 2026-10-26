@@ -1,0 +1,16 @@
+*
+!package.json
+!package-lock.json
+!pilot-local/
+!pilot-local/package.json
+!pilot-local/package-lock.json
+!pilot-local/pilot.mjs
+!pilot-local/verifier.mjs
+!pilot-local/jwks-snapshot.mjs
+!pilot-local/http-pilot.mjs
+!pilot-local/owner-config.mjs
+!pilot-local/container-main.mjs
+!pilot-local/deploy/
+!pilot-local/deploy/Dockerfile
+!pilot-local/deploy/Dockerfile.dockerignore
+!pilot-local/bounded-deadline.mjs

@@ -1,0 +1,42 @@
+name: telegram-assistant-bridge-synthetic
+services:
+  bridge:
+    image: ${BRIDGE_SYNTHETIC_IMAGE:?Set exact tested sha256 image content reference}
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.25
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 64
+    init: true
+    restart: "no"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,uid=1000,gid=1000
+    volumes:
+      - type: bind
+        source: ${BRIDGE_SYNTHETIC_OWNER_FILE:?Set own verified private owner file}
+        target: /run/bridge-owner/owner.local.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${BRIDGE_SYNTHETIC_JWKS_DIR:?Set own public-key snapshot directory}
+        target: /run/bridge-jwks
+        read_only: true
+        bind:
+          create_host_path: false
+      - synthetic_state:/home/node/bridge-state:ro
+    networks: [synthetic_private]
+    logging:
+      driver: local
+      options:
+        max-size: "2m"
+        max-file: "2"
+    # No published ports, egress network, Docker socket, credentials in env or neighbor mounts.
+networks:
+  synthetic_private:
+    internal: true
+volumes:
+  synthetic_state:
