@@ -31,18 +31,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          trap 'docker stop bridge-status-ci >/dev/null 2>&1 || true; docker rm bridge-status-ci >/dev/null 2>&1 || true' EXIT
+          trap 'docker logs bridge-status-ci || true; docker inspect --format "{{json .State}}" bridge-status-ci || true; docker stop bridge-status-ci >/dev/null 2>&1 || true; docker rm bridge-status-ci >/dev/null 2>&1 || true' EXIT
           docker network create --internal bridge-status-ci
           docker run -d --name bridge-status-ci --network bridge-status-ci --user 1000:1000 --read-only --cap-drop ALL --security-opt no-new-privileges --cpus .25 --memory 256m --memory-swap 256m --pids-limit 64 --tmpfs /tmp:rw,noexec,nosuid,size=16m,uid=1000,gid=1000 -p 127.0.0.1:18085:3000 telegram-assistant-bridge:status node src/main.mjs --container --public-status
+          ready=false
           for attempt in $(seq 1 20); do
-            if curl -s -o /dev/null http://127.0.0.1:18085/mcp; then break; fi
+            if curl -s -o /dev/null http://127.0.0.1:18085/mcp; then ready=true; break; fi
             sleep 1
           done
+          if [ "$ready" != true ]; then docker port bridge-status-ci; exit 1; fi
           docker stats --no-stream --format '{{json .}}' bridge-status-ci > image-artifact/stats-idle.json
           timeout 30s node scripts/smoke.mjs http://127.0.0.1:18085/mcp > image-artifact/smoke.txt &
           smoke_pid=$!
           for sample in 1 2 3; do
-            docker stats --no-stream --format '{{json .}}' bridge-status-ci >> image-artifact/stats-during-calls.jsonl
+            if [ "$ready" != true ]; then docker port bridge-status-ci; exit 1; fi
+          docker stats --no-stream --format '{{json .}}' bridge-status-ci >> image-artifact/stats-during-calls.jsonl
           done
           wait "$smoke_pid"
           docker inspect --format '{{json .State}}' bridge-status-ci > image-artifact/container-state.json
