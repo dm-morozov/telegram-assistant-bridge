@@ -16,6 +16,7 @@ jobs:
           node-version: '24'
       - run: npm ci --ignore-scripts --no-audit --no-fund && npm ci --prefix pilot-local --ignore-scripts --no-audit --no-fund
       - run: npm audit --omit=dev && npm audit --prefix pilot-local --omit=dev && npm test
+      - run: python3 -m unittest discover -s pilot-local/deploy -p '*_test.py'
       - name: Build separate image from resolved official digests
         shell: bash
         run: |
